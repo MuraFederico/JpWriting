@@ -5,15 +5,15 @@ import { writeFileSync } from 'node:fs';
 // Stroke endings, one letter per stroke in KanjiVG order: t = tome, n = hane, r = harai.
 // KanjiVG has no ending data for kana, so these are hand-labelled; some are debatable, edit freely.
 const KANA = [
-  ['あ', 'a', 'ttr'], ['い', 'i', 'nt'], ['う', 'u', 'tr'], ['え', 'e', 'tr'], ['お', 'o', 'trt'],
-  ['か', 'ka', 'ntt'], ['き', 'ki', 'tttt'], ['く', 'ku', 't'], ['け', 'ke', 'ntr'], ['こ', 'ko', 'nt'],
-  ['さ', 'sa', 'ttt'], ['し', 'shi', 'r'], ['す', 'su', 'tr'], ['せ', 'se', 'tnt'], ['そ', 'so', 'r'],
-  ['た', 'ta', 'ttnt'], ['ち', 'chi', 'tr'], ['つ', 'tsu', 'r'], ['て', 'te', 't'], ['と', 'to', 'tt'],
-  ['な', 'na', 'ttnr'], ['に', 'ni', 'nnt'], ['ぬ', 'nu', 'tt'], ['ね', 'ne', 'tt'], ['の', 'no', 'r'],
-  ['は', 'ha', 'ntr'], ['ひ', 'hi', 't'], ['ふ', 'fu', 'tntt'], ['へ', 'he', 't'], ['ほ', 'ho', 'nttr'],
-  ['ま', 'ma', 'ttr'], ['み', 'mi', 'tt'], ['む', 'mu', 'tnt'], ['め', 'me', 'tt'], ['も', 'mo', 'ntt'],
-  ['や', 'ya', 'ntt'], ['ゆ', 'yu', 'nr'], ['よ', 'yo', 'tr'],
-  ['ら', 'ra', 'tr'], ['り', 'ri', 'nr'], ['る', 'ru', 't'], ['れ', 're', 'tr'], ['ろ', 'ro', 'r'],
+  ['あ', 'a', 'ttr'], ['い', 'i', 'nt'], ['う', 'u', 'tr'], ['え', 'e', 'tt'], ['お', 'o', 'trt'],
+  ['か', 'ka', 'ntt'], ['き', 'ki', 'ttnt'], ['く', 'ku', 't'], ['け', 'ke', 'ntr'], ['こ', 'ko', 'nt'],
+  ['さ', 'sa', 'tnt'], ['し', 'shi', 'r'], ['す', 'su', 'tr'], ['せ', 'se', 'tnt'], ['そ', 'so', 't'],
+  ['た', 'ta', 'tttt'], ['ち', 'chi', 'tr'], ['つ', 'tsu', 'r'], ['て', 'te', 't'], ['と', 'to', 'tt'],
+  ['な', 'na', 'ttnt'], ['に', 'ni', 'ntt'], ['ぬ', 'nu', 'tt'], ['ね', 'ne', 'tt'], ['の', 'no', 'r'],
+  ['は', 'ha', 'ntt'], ['ひ', 'hi', 't'], ['ふ', 'fu', 'ntnt'], ['へ', 'he', 't'], ['ほ', 'ho', 'nttt'],
+  ['ま', 'ma', 'ttt'], ['み', 'mi', 'tr'], ['む', 'mu', 'trt'], ['め', 'me', 'tr'], ['も', 'mo', 'rtt'],
+  ['や', 'ya', 'rnt'], ['ゆ', 'yu', 'rr'], ['よ', 'yo', 'tt'],
+  ['ら', 'ra', 'nr'], ['り', 'ri', 'nr'], ['る', 'ru', 't'], ['れ', 're', 'tr'], ['ろ', 'ro', 'r'],
   ['わ', 'wa', 'tr'], ['を', 'wo', 'ttt'], ['ん', 'n', 'r'],
 ];
 const TYPES = { t: 'tome', n: 'hane', r: 'harai' };

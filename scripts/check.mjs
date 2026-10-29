@@ -1,7 +1,7 @@
 // Self-check for stroke matching and profile logic: node scripts/check.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parsePath, judge, detectType, taperedOutline } from '../src/strokes.ts';
+import { parsePath, judge, detectType, taperedOutline, trimCurl } from '../src/strokes.ts';
 import { sanitize, addAttempt, median, DEFAULT_PROFILE } from '../src/profile.ts';
 
 const data = JSON.parse(readFileSync(new URL('../src/hiragana.json', import.meta.url)));
@@ -23,6 +23,12 @@ assert.equal(detectType(line(20), 700), 'tome'); // last move at t=500, lifted a
 assert.equal(detectType(line(20), 500), 'harai');
 const hook = [...line(20), { x: 0.17, y: 0.78, t: 510 }, { x: 0.14, y: 0.76, t: 520 }];
 assert.equal(detectType(hook, 520), 'hane');
+
+// trimCurl: a dot that curls back loses the curl; a long stroke ending in a loop is untouched.
+const dot = [{ x: 0.2, y: 0.2 }, { x: 0.3, y: 0.25 }, { x: 0.35, y: 0.3 }, { x: 0.3, y: 0.32 }];
+assert.equal(trimCurl(dot).length, 3);
+const loop = [...line(20), { x: 0.8, y: 0.8 }, { x: 0.8, y: 0.6 }, { x: 0.7, y: 0.7 }];
+assert.equal(trimCurl(loop).length, loop.length);
 
 // Harai outline: full width at the start, a point at the end.
 const outline = taperedOutline(line(20), 0.05);

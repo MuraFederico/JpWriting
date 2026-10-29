@@ -43,6 +43,19 @@ export function parsePath(d: string): Pt[] {
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 const length = (pts: Pt[]) => pts.reduce((s, p, i) => (i ? s + dist(pts[i - 1], p) : 0), 0);
 
+// KanjiVG ends many tome strokes (dots, き/さ) with a brush curl that reads as a hane.
+// Cut short strokes at the point farthest from the start when what follows is a short tail;
+// long strokes ending in a loop (ぬ, ね, る) are left alone.
+export function trimCurl(pts: Pt[]): Pt[] {
+  if (length(pts) > 1) return pts;
+  let far = 0;
+  pts.forEach((p, i) => {
+    if (dist(pts[0], p) > dist(pts[0], pts[far])) far = i;
+  });
+  const tail = length(pts.slice(far));
+  return tail > 0 && tail < 0.3 * length(pts) ? pts.slice(0, far + 1) : pts;
+}
+
 // Evenly spaced points along the polyline (arc length), so strokes of any sampling compare 1:1.
 export function resample(pts: Pt[], n = N): Pt[] {
   const step = length(pts) / (n - 1);

@@ -1,15 +1,19 @@
 import { useMemo, useRef, useState } from 'react';
 import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import data from './hiragana.json';
-import { KANJIVG_SIZE as S, detectType, judge, parsePath, taperedOutline, type Pt, type StrokeType, type TPt } from './strokes';
+import { KANJIVG_SIZE as S, detectType, judge, parsePath, taperedOutline, trimCurl, type Pt, type StrokeType, type TPt } from './strokes';
 import { pct, ROWS, type Attempt, type Settings } from './profile';
 import { useColors, type Colors } from './theme';
 
 export const KANA = data.map((k) => ({
   kana: k.kana,
   romaji: k.romaji,
-  strokes: k.strokes.map((s) => ({ d: s.d, type: s.type as StrokeType, pts: parsePath(s.d) })),
+  strokes: k.strokes.map((s) => {
+    const type = s.type as StrokeType;
+    const pts = parsePath(s.d);
+    return { type, pts: type === 'tome' ? trimCurl(pts) : pts };
+  }),
 }));
 const TYPES: [StrokeType, string][] = [['tome', '止め'], ['hane', '跳ね'], ['harai', '払い']];
 const SHOW = ['off', 'shape', 'order'] as const;
@@ -43,7 +47,7 @@ function ShuffleIcon({ color }: { color: string }) {
 // Reference stroke in KanjiVG units; harai is drawn tapering to a point.
 function RefStroke({ s, color, opacity, width }: { s: (typeof KANA)[number]['strokes'][number]; color: string; opacity: number; width: number }) {
   if (s.type !== 'harai')
-    return <Path d={s.d} stroke={color} strokeOpacity={opacity} strokeWidth={width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+    return <Polyline points={toPoints(s.pts)} stroke={color} strokeOpacity={opacity} strokeWidth={width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
   return <Polygon points={toPoints(taperedOutline(s.pts, width / S))} fill={color} fillOpacity={opacity} />;
 }
 
