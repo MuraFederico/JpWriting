@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import data from './hiragana.json';
 import { KANJIVG_SIZE as S, detectType, judge, parsePath, taperedOutline, type Pt, type StrokeType, type TPt } from './strokes';
@@ -58,8 +58,9 @@ export function Practice({
 }) {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
-  const { width } = useWindowDimensions();
-  const size = Math.min(width - 32, 400);
+  // The box takes whatever space is left between the header and the buttons (minus its 2px border).
+  const [area, setArea] = useState({ width: 0, height: 0 });
+  const size = Math.max(0, Math.min(area.width, area.height, 400) - 4);
   const [index, setIndex] = useState(() => nextIn(poolOf(settings.rows), settings.shuffle));
   const [rowsOpen, setRowsOpen] = useState(false);
   const [done, setDone] = useState<Pt[][]>([]);
@@ -202,33 +203,37 @@ export function Practice({
         {mistakes ? ` · ${mistakes} mistake${mistakes > 1 ? 's' : ''}` : ''}
       </Text>
 
-      <View nativeID="canvas" style={[styles.box, { width: size, height: size }]} {...pan.panHandlers}>
-        <View style={{ pointerEvents: 'none' }}>
-          <Svg width={size} height={size} viewBox={`0 0 ${S} ${S}`}>
-            <Line x1={S / 2} y1={0} x2={S / 2} y2={S} stroke={c.red} strokeOpacity={0.5} strokeWidth={0.6} strokeDasharray="3 3" />
-            <Line x1={0} y1={S / 2} x2={S} y2={S / 2} stroke={c.red} strokeOpacity={0.5} strokeWidth={0.6} strokeDasharray="3 3" />
-            {complete && kana.strokes.map((s, i) => <RefStroke key={i} s={s} color={c.accent} opacity={0.35} width={7} />)}
-            {!complete && show !== 'off' && kana.strokes.map((s, i) => <RefStroke key={i} s={s} color={c.guide} opacity={0.3} width={5} />)}
-            {!complete &&
-              show === 'order' &&
-              kana.strokes.map((s, i) => (
-                <G key={i}>
-                  <Circle cx={s.pts[0].x * S} cy={s.pts[0].y * S} r={4} fill={c.red} />
-                  <SvgText x={s.pts[0].x * S} y={s.pts[0].y * S + 2.2} fontSize={6} fontWeight="bold" fill={c.onAccent} textAnchor="middle">
-                    {i + 1}
-                  </SvgText>
-                </G>
-              ))}
-            {hinted && (
-              <>
-                <RefStroke s={hinted} color={c.guide} opacity={0.5} width={5} />
-                <Circle cx={hinted.pts[0].x * S} cy={hinted.pts[0].y * S} r={2.5} fill={c.red} />
-              </>
-            )}
-            {[...done, live.current].map((pts, i) => (
-              <Polyline key={i} points={toPoints(pts)} stroke={c.text} strokeWidth={4} {...ink} />
-            ))}
-          </Svg>
+      <View style={styles.area} onLayout={(e) => setArea(e.nativeEvent.layout)}>
+        <View style={styles.box}>
+          <View nativeID="canvas" style={{ width: size, height: size }} {...pan.panHandlers}>
+            <View style={{ pointerEvents: 'none' }}>
+              <Svg width={size} height={size} viewBox={`0 0 ${S} ${S}`}>
+                <Line x1={S / 2} y1={0} x2={S / 2} y2={S} stroke={c.red} strokeOpacity={0.5} strokeWidth={0.6} strokeDasharray="3 3" />
+                <Line x1={0} y1={S / 2} x2={S} y2={S / 2} stroke={c.red} strokeOpacity={0.5} strokeWidth={0.6} strokeDasharray="3 3" />
+                {complete && kana.strokes.map((s, i) => <RefStroke key={i} s={s} color={c.accent} opacity={0.35} width={7} />)}
+                {!complete && show !== 'off' && kana.strokes.map((s, i) => <RefStroke key={i} s={s} color={c.guide} opacity={0.3} width={5} />)}
+                {!complete &&
+                  show === 'order' &&
+                  kana.strokes.map((s, i) => (
+                    <G key={i}>
+                      <Circle cx={s.pts[0].x * S} cy={s.pts[0].y * S} r={4} fill={c.red} />
+                      <SvgText x={s.pts[0].x * S} y={s.pts[0].y * S + 2.2} fontSize={6} fontWeight="bold" fill={c.onAccent} textAnchor="middle">
+                        {i + 1}
+                      </SvgText>
+                    </G>
+                  ))}
+                {hinted && (
+                  <>
+                    <RefStroke s={hinted} color={c.guide} opacity={0.5} width={5} />
+                    <Circle cx={hinted.pts[0].x * S} cy={hinted.pts[0].y * S} r={2.5} fill={c.red} />
+                  </>
+                )}
+                {[...done, live.current].map((pts, i) => (
+                  <Polyline key={i} points={toPoints(pts)} stroke={c.text} strokeWidth={4} {...ink} />
+                ))}
+              </Svg>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -265,6 +270,7 @@ const makeStyles = (c: Colors) =>
     screen: { flex: 1, alignItems: 'center', padding: 16, gap: 8 },
     romaji: { fontSize: 44, fontWeight: '700', color: c.text },
     sub: { fontSize: 15, color: c.muted },
+    area: { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
     box: { borderWidth: 2, borderColor: c.red, backgroundColor: c.paper },
     message: { minHeight: 22, fontSize: 15, color: c.text, textAlign: 'center' },
     row: { flexDirection: 'row', gap: 8 },
