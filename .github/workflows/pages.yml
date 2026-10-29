@@ -1,4 +1,4 @@
-# Push to main → exports the web version and publishes it on GitHub Pages (for iPhone: Safari → Share → Add to Home Screen).
+# Push to master → exports the web version and publishes it on GitHub Pages (for iPhone: Safari → Share → Add to Home Screen).
 # Repo setting needed once: Settings → Pages → Source: GitHub Actions.
 name: Deploy web
 

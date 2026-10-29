@@ -17,7 +17,7 @@ Stroke data comes from [KanjiVG](https://kanjivg.tagaini.net) (CC BY-SA 3.0). Th
 
 ### Android APK (GitHub Release)
 
-Pushing a tag `v*` builds a signed APK and attaches it to a GitHub Release (`.github/workflows/release-android.yml`).
+Pushing a tag like `v1.0.0` or `1.0.0`, or publishing a Release with a new tag on the website, builds a signed APK and attaches it to a GitHub Release (`.github/workflows/release-android.yml`).
 
 One-time setup: create a signing key. Every release must use this same key, otherwise Android refuses the update and you'd have to uninstall, which deletes your practice history. Keep the keystore file and its password safe, outside the repo.
 
@@ -51,6 +51,6 @@ git push origin v1.0.0
 
 ### Web / iPhone (GitHub Pages)
 
-Every push to `main` publishes the web version (`.github/workflows/pages.yml`). One-time setup: Settings → Pages → Source: **GitHub Actions**. Free GitHub plans only offer Pages for public repositories.
+Every push to `master` publishes the web version (`.github/workflows/pages.yml`). One-time setup: Settings → Pages → Source: **GitHub Actions**. Free GitHub plans only offer Pages for public repositories.
 
 On iPhone, open `https://<user>.github.io/<repo>/` in Safari, then Share → **Add to Home Screen**. On the web, progress is stored in the browser, so use Settings → Export to back it up.
