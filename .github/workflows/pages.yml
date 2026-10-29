@@ -1,0 +1,39 @@
+# Push to main → exports the web version and publishes it on GitHub Pages (for iPhone: Safari → Share → Add to Home Screen).
+# Repo setting needed once: Settings → Pages → Source: GitHub Actions.
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Serve under /<repo-name>/
+        run: jq --arg b "/${{ github.event.repository.name }}" '.expo.experiments.baseUrl = $b' app.json > app.tmp && mv app.tmp app.json
+      - run: npx expo export --platform web
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
