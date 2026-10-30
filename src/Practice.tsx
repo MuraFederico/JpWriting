@@ -246,7 +246,8 @@ export function Practice({
       <Text style={styles.message}>{message}</Text>
 
       {settings.detection === 'buttons' && (
-        <View style={styles.row}>
+        // Hidden but kept in the layout once complete, so the box doesn't jump in size.
+        <View style={[styles.row, complete && styles.hidden]}>
           {TYPES.map(([t, jp]) => (
             <Pressable key={t} onPress={() => setSelected(t)} style={[styles.button, selected === t && styles.selected]}>
               <Text style={[styles.buttonText, selected === t && styles.selectedText]}>{t}</Text>
@@ -256,17 +257,28 @@ export function Practice({
         </View>
       )}
 
-      <View style={styles.row}>
-        <Pressable disabled={complete} onPress={() => setHint(true)} style={[styles.button, complete && styles.disabled]}>
-          <Text style={styles.buttonText}>Hint</Text>
-        </Pressable>
-        <Pressable onPress={() => setShow(SHOW[(SHOW.indexOf(show) + 1) % SHOW.length])} style={[styles.button, show !== 'off' && styles.selected]}>
-          <Text style={[styles.buttonText, show !== 'off' && styles.selectedText]}>Show: {show}</Text>
-        </Pressable>
-        <Pressable onPress={next} style={[styles.button, complete && styles.selected]}>
-          <Text style={[styles.buttonText, complete && styles.selectedText]}>{complete ? 'Next' : 'Skip'}</Text>
-        </Pressable>
-      </View>
+      {complete ? (
+        <View style={styles.row}>
+          <Pressable onPress={() => goTo(index)} style={styles.button}>
+            <Text style={styles.buttonText}>Retry</Text>
+          </Pressable>
+          <Pressable onPress={next} style={[styles.button, styles.selected]}>
+            <Text style={[styles.buttonText, styles.selectedText]}>Next</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.row}>
+          <Pressable onPress={() => setHint(true)} style={styles.button}>
+            <Text style={styles.buttonText}>Hint</Text>
+          </Pressable>
+          <Pressable onPress={() => setShow(SHOW[(SHOW.indexOf(show) + 1) % SHOW.length])} style={[styles.button, show !== 'off' && styles.selected]}>
+            <Text style={[styles.buttonText, show !== 'off' && styles.selectedText]}>Show: {show}</Text>
+          </Pressable>
+          <Pressable onPress={next} style={styles.button}>
+            <Text style={styles.buttonText}>Skip</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -285,7 +297,7 @@ const makeStyles = (c: Colors) =>
     jp: { fontSize: 13, color: c.muted },
     selected: { backgroundColor: c.accent, borderColor: c.accent },
     selectedText: { color: c.onAccent },
-    disabled: { opacity: 0.4 },
+    hidden: { opacity: 0, pointerEvents: 'none' },
     pill: { minHeight: 30, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: c.hairline },
     chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, maxWidth: 400 },
     chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: c.border },
