@@ -18,13 +18,19 @@ const KANA = [
 ];
 const TYPES = { t: 'tome', n: 'hane', r: 'harai' };
 
+// Hand-drawn replacements (KanjiVG 109×109 units) for strokes whose KanjiVG shape differs from textbook style.
+// kana → { strokeNumber: path }
+const OVERRIDES = {
+  ふ: { 3: 'M16,71c1.2,4.7,2.8,9.5,5,14c0.9,0.6,3.3,-2,6,-5' }, // KanjiVG: short line + long flick (a "V")
+};
+
 const out = [];
 for (const [kana, romaji, endings] of KANA) {
   const code = kana.codePointAt(0).toString(16).padStart(5, '0');
   const svg = await (await fetch(`https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/${code}.svg`)).text();
   const ds = [...svg.matchAll(/<path id="kvg:[^"]+-s\d+" d="([^"]+)"/g)].map((m) => m[1]);
   if (ds.length !== endings.length) throw new Error(`${kana}: KanjiVG has ${ds.length} strokes, labelled ${endings.length}`);
-  out.push({ kana, romaji, strokes: ds.map((d, i) => ({ d, type: TYPES[endings[i]] })) });
+  out.push({ kana, romaji, strokes: ds.map((d, i) => ({ d: OVERRIDES[kana]?.[i + 1] ?? d, type: TYPES[endings[i]] })) });
 }
 writeFileSync(new URL('../src/hiragana.json', import.meta.url), JSON.stringify(out, null, 1));
 console.log(`wrote ${out.length} kana`);
