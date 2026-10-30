@@ -15,9 +15,9 @@ Stroke data comes from [KanjiVG](https://kanjivg.tagaini.net) (CC BY-SA 3.0). Th
 
 ## Releases
 
-### Android APK (GitHub Release)
+Pushing a tag like `v1.0.0` or `1.0.0`, or publishing a Release with a new tag on the website, builds a signed Android APK and an unsigned iPhone `.ipa` and attaches both to the GitHub Release (`.github/workflows/release.yml`).
 
-Pushing a tag like `v1.0.0` or `1.0.0`, or publishing a Release with a new tag on the website, builds a signed APK and attaches it to a GitHub Release (`.github/workflows/release-android.yml`).
+### Android APK
 
 One-time setup: create a signing key. Every release must use this same key, otherwise Android refuses the update and you'd have to uninstall, which deletes your practice history. Keep the keystore file and its password safe, outside the repo.
 
@@ -48,6 +48,18 @@ Release:
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+### iPhone .ipa (AltStore / SideStore)
+
+The `.ipa` is unsigned, so no Apple Developer account or secrets are needed. [AltStore](https://altstore.io) or [SideStore](https://sidestore.io) signs it with your own free Apple ID when installing:
+
+1. Install AltStore (with AltServer on your PC) or SideStore on the iPhone, following their setup guide. On Windows, AltServer needs iTunes and iCloud downloaded from apple.com, not the Microsoft Store versions.
+2. Download `JpWriting-<version>.ipa` from the Release on the iPhone, then open it with AltStore / SideStore (or use "+" → pick the file).
+3. Updates: install the newer `.ipa` the same way; progress is kept.
+
+Free Apple ID limits: the app must be refreshed every 7 days (AltStore does it automatically when AltServer is reachable on the same Wi-Fi; SideStore refreshes on the phone), and at most 3 sideloaded apps at a time. AltStore PAL (the EU marketplace) can't install self-signed apps; use classic AltStore or SideStore.
+
+macOS build minutes are free for public repositories; for private ones they count 10× against the monthly allowance.
 
 ### Web / iPhone (GitHub Pages)
 
