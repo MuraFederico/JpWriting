@@ -84,11 +84,11 @@ export function Practice({
   const total = kana.strokes.length;
   const complete = done.length === total;
 
-  const finish = useRef<(pts: TPt[]) => void>(() => {});
-  finish.current = (pts) => {
+  const finish = useRef<(pts: TPt[], releasedAt: number) => void>(() => {});
+  finish.current = (pts, releasedAt) => {
     if (complete || !pts.length) return;
     const expected = kana.strokes[done.length].type;
-    const type = settings.detection === 'auto' ? detectType(pts, Date.now()) : selected;
+    const type = settings.detection === 'auto' ? detectType(pts, releasedAt) : selected;
     setSelected(null);
     if (!type) return setMessage('Pick a stroke type first');
     const { dist, error } = judge(pts, kana.strokes.map((s) => s.pts), done.length, settings.tolerance);
@@ -109,10 +109,12 @@ export function Practice({
     setMessage(`Done! Correctness ${pct(attempt.correctness)} · precision ${pct(precision)}`);
   };
 
+  // Event timestamps, not Date.now(): touch events queue up while the JS thread redraws and arrive in
+  // bursts, which would make the flick speed used for automatic detection meaningless.
   const point = (e: GestureResponderEvent): TPt => ({
     x: (e.nativeEvent.pageX - origin.current.x) / sizeRef.current,
     y: (e.nativeEvent.pageY - origin.current.y) / sizeRef.current,
-    t: Date.now(),
+    t: e.nativeEvent.timestamp,
   });
   const pan = useRef(
     PanResponder.create({
@@ -128,10 +130,10 @@ export function Practice({
         live.current.push(point(e));
         redraw((c) => c + 1);
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (e) => {
         const pts = live.current;
         live.current = [];
-        finish.current(pts);
+        finish.current(pts, e.nativeEvent.timestamp);
         redraw((c) => c + 1);
       },
       onPanResponderTerminate: () => {
