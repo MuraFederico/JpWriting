@@ -142,11 +142,12 @@ export function hasHook(pts: Pt[]): boolean {
 }
 
 // ponytail: heuristic ending detection, tune HOOK_COS / FLICK_RATIO on real devices.
-// Stopped before lifting = tome; lifted while moving = hane if it ends in a hook, else harai.
+// Ends in a hook = hane (often a pause then a tiny flick, so speed alone misses it);
+// otherwise lifted while moving = harai, stopped before lifting = tome.
 export function detectType(pts: TPt[], releasedAt: number): StrokeType {
+  if (hasHook(pts)) return 'hane';
   const avg = length(pts) / Math.max(1, pts[pts.length - 1].t - pts[0].t);
-  const tail = pts.filter((p) => p.t >= releasedAt - FLICK_WINDOW_MS);
-  const flicked = avg > 0 && length(tail) / FLICK_WINDOW_MS > avg * FLICK_RATIO;
-  if (!flicked) return 'tome';
-  return hasHook(pts) ? 'hane' : 'harai';
+  const from = pts.findIndex((p) => p.t >= releasedAt - FLICK_WINDOW_MS);
+  const tail = from < 0 ? [] : pts.slice(Math.max(0, from - 1)); // include the segment entering the window
+  return avg > 0 && length(tail) / FLICK_WINDOW_MS > avg * FLICK_RATIO ? 'harai' : 'tome';
 }

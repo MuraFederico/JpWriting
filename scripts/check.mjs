@@ -31,6 +31,10 @@ assert.ok(Math.hypot(trimmed.at(-1).x - 0.5, trimmed.at(-1).y - 0.2) < 0.02);
 const longTail = [{ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.2, y: 0.6 }];
 assert.equal(trimCurl(longTail), longTail);
 
+// Long fast stroke, a pause, then a short quick flick up-right (に's 1st stroke) = hane.
+const longHane = [...line(20), { x: 0.215, y: 0.785, t: 720 }, { x: 0.23, y: 0.77, t: 730 }];
+assert.equal(detectType(longHane, 735), 'hane');
+
 // hasHook ignores a tiny jitter at the end; a real flick counts.
 assert.equal(detectType([...line(20), { x: 0.205, y: 0.795, t: 505 }], 505), 'harai');
 
