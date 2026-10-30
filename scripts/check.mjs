@@ -17,6 +17,13 @@ for (const { kana, strokes } of data) {
   });
 }
 
+// ぬ drawn for ね (and vice versa) is rejected even at the most lenient setting.
+const kanaRefs = (k) => data.find((x) => x.kana === k).strokes.map((s) => parsePath(s.d));
+for (const [drawn, target] of [['ぬ', 'ね'], ['ね', 'ぬ'], ['れ', 'わ']]) {
+  const [a, b] = [kanaRefs(drawn), kanaRefs(target)];
+  assert.ok(a.some((p, i) => judge(p, b, i, 0.2).error), `${drawn} should not pass as ${target}`);
+}
+
 // Timed strokes: straight line that stops (tome), keeps going (harai), hooks back (hane).
 const line = (n) => Array.from({ length: n }, (_, i) => ({ x: 0.2, y: 0.2 + (0.6 * i) / (n - 1), t: (i * 500) / (n - 1) }));
 assert.equal(detectType(line(20), 700), 'tome'); // last move at t=500, lifted at 700

@@ -120,20 +120,43 @@ export function taperedOutline(pts: Pt[], width: number, taper = 0.35): Pt[] {
   return [...left, ...right.reverse()];
 }
 
-// Mean point-to-point distance, in box widths (0.1 = 10% of the reticle).
-export function strokeDistance(a: Pt[], b: Pt[]): number {
+// Point-to-point comparison of two strokes resampled to N points: mean and worst distance (box widths,
+// 0.1 = 10% of the reticle) and mean difference in direction along the stroke (degrees).
+function compare(a: Pt[], b: Pt[]) {
   const ra = resample(a);
   const rb = resample(b);
-  return ra.reduce((s, p, i) => s + dist(p, rb[i]), 0) / N;
+  const gaps = ra.map((p, i) => dist(p, rb[i]));
+  let turn = 0;
+  for (let i = 0; i < N - 1; i++) {
+    const u = { x: ra[i + 1].x - ra[i].x, y: ra[i + 1].y - ra[i].y };
+    const v = { x: rb[i + 1].x - rb[i].x, y: rb[i + 1].y - rb[i].y };
+    const norm = Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y);
+    turn += norm ? Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / norm))) : 0;
+  }
+  return { mean: gaps.reduce((s, g) => s + g, 0) / N, max: Math.max(...gaps), dir: (turn / (N - 1)) * (180 / Math.PI) };
+}
+
+export const strokeDistance = (a: Pt[], b: Pt[]) => compare(a, b).mean;
+
+// The mean alone lets a different stroke through if it sweeps the same area (ぬ for ね at lenient settings),
+// so the worst point and the direction along the stroke must fit too.
+const MAX_GAP_FACTOR = 1.6;
+const DIR_MAX_DEG = 30;
+const DIR_MIN_LENGTH = 0.25; // on dots, direction is mostly finger wobble
+function fits(drawn: Pt[], ref: Pt[], tolerance: number): 'ok' | 'off' | 'shape' {
+  const c = compare(drawn, ref);
+  if (c.mean > tolerance) return 'off';
+  return c.max <= MAX_GAP_FACTOR * tolerance && (length(ref) < DIR_MIN_LENGTH || c.dir <= DIR_MAX_DEG) ? 'ok' : 'shape';
 }
 
 export function judge(drawn: Pt[], refs: Pt[][], next: number, tolerance: number): { dist: number; error?: string } {
   const d = strokeDistance(drawn, refs[next]);
-  if (d <= tolerance) return { dist: d };
-  if (strokeDistance([...drawn].reverse(), refs[next]) <= tolerance) return { dist: d, error: 'Wrong direction' };
-  const other = refs.findIndex((r, i) => i > next && strokeDistance(drawn, r) <= tolerance);
+  const fit = fits(drawn, refs[next], tolerance);
+  if (fit === 'ok') return { dist: d };
+  if (fits([...drawn].reverse(), refs[next], tolerance) === 'ok') return { dist: d, error: 'Wrong direction' };
+  const other = refs.findIndex((r, i) => i > next && fits(drawn, r, tolerance) === 'ok');
   if (other >= 0) return { dist: d, error: `Wrong order: that was stroke ${other + 1}` };
-  return { dist: d, error: 'Not precise enough' };
+  return { dist: d, error: fit === 'shape' ? 'Wrong shape' : 'Not precise enough' };
 }
 
 // A flick: the stroke turns back sharply in its last 0.15 and goes on for at least 0.02 (not just finger jitter).
