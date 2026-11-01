@@ -1,29 +1,27 @@
 import { useMemo, useRef, useState } from 'react';
 import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
-import data from './hiragana.json';
-import { KANJIVG_SIZE as S, detectType, judge, parsePath, taperedOutline, trimCurl, type Pt, type StrokeType, type TPt } from './strokes';
-import { pct, ROWS, type Attempt, type Settings } from './profile';
+import { KANA_DATA } from './kana';
+import { detectType, judge, taperedOutline, type Pt, type StrokeType, type TPt } from './strokes';
+import { pct, ROWS, type Attempt, type ScriptChoice, type Settings } from './profile';
 import { useColors, type Colors } from './theme';
 
-export const KANA = data.map((k) => ({
-  kana: k.kana,
-  romaji: k.romaji,
-  strokes: k.strokes.map((s) => {
-    const type = s.type as StrokeType;
-    const pts = parsePath(s.d);
-    return { type, pts: type === 'tome' ? trimCurl(pts) : pts };
-  }),
-}));
+export const KANA = KANA_DATA;
+const S = 109; // SVG units of the writing box; stroke widths below are tuned to this
 const TYPES: [StrokeType, string][] = [['tome', '止め'], ['hane', '跳ね'], ['harai', '払い']];
 const SHOW = ['off', 'shape', 'order'] as const;
 const PRECISION_ZERO = 0.25; // mean deviation (box widths) that scores 0% precision
 const toPoints = (pts: Pt[]) => pts.map((p) => `${p.x * S},${p.y * S}`).join(' ');
-// KANA is in gojūon order, so each kana belongs to the last row head before it.
-let row = '';
-const ROW_OF = KANA.map((k) => (row = ROWS.includes(k.kana) ? k.kana : row));
+const SCRIPTS: [ScriptChoice, string][] = [['hiragana', 'あ'], ['katakana', 'ア'], ['both', 'あ ア']];
 const ALL = KANA.map((_, i) => i);
-const poolOf = (rows: string[]) => (rows.length ? ALL.filter((i) => rows.includes(ROW_OF[i])) : ALL);
+const poolOf = ({ rows, script }: Pick<Settings, 'rows' | 'script'>) =>
+  ALL.filter((i) => (script === 'both' || KANA[i].script === script) && (!rows.length || rows.includes(KANA[i].row)));
+// Row chip label in the chosen script(s): か, カ or か カ.
+const rowLabel = (r: string, script: ScriptChoice) =>
+  (['hiragana', 'katakana'] as const)
+    .filter((s) => script === 'both' || s === script)
+    .map((s) => KANA.find((k) => k.row === r && k.script === s)!.kana)
+    .join(' ');
 const randomFrom = (pool: number[], not?: number) => {
   const options = pool.length > 1 ? pool.filter((i) => i !== not) : pool;
   return options[Math.floor(Math.random() * options.length)];
@@ -44,7 +42,7 @@ function ShuffleIcon({ color }: { color: string }) {
   );
 }
 
-// Reference stroke in KanjiVG units; harai is drawn tapering to a point.
+// Reference stroke in SVG units; harai is drawn tapering to a point.
 function RefStroke({ s, color, opacity, width }: { s: (typeof KANA)[number]['strokes'][number]; color: string; opacity: number; width: number }) {
   if (s.type !== 'harai')
     return <Polyline points={toPoints(s.pts)} stroke={color} strokeOpacity={opacity} strokeWidth={width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
@@ -65,7 +63,7 @@ export function Practice({
   // The box takes whatever space is left between the header and the buttons (minus its 2px border).
   const [area, setArea] = useState({ width: 0, height: 0 });
   const size = Math.max(0, Math.min(area.width, area.height, 400) - 4);
-  const [index, setIndex] = useState(() => nextIn(poolOf(settings.rows), settings.shuffle));
+  const [index, setIndex] = useState(() => nextIn(poolOf(settings), settings.shuffle));
   const [rowsOpen, setRowsOpen] = useState(false);
   const [done, setDone] = useState<Pt[][]>([]);
   const [dists, setDists] = useState<number[]>([]);
@@ -152,17 +150,23 @@ export function Practice({
     setMessage('');
     setHint(false);
   };
-  const next = () => goTo(nextIn(poolOf(settings.rows), settings.shuffle, index));
+  const next = () => goTo(nextIn(poolOf(settings), settings.shuffle, index));
   const toggleRow = (r: string | null) => {
     const rows = r === null ? [] : ROWS.filter((x) => (x === r) !== settings.rows.includes(x));
     onSettings({ rows });
-    const pool = poolOf(rows);
+    const pool = poolOf({ ...settings, rows });
     if (!pool.includes(index)) goTo(nextIn(pool, settings.shuffle));
   };
   const toggleShuffle = () => {
     const shuffle = !settings.shuffle;
     onSettings({ shuffle });
-    goTo(nextIn(poolOf(settings.rows), shuffle, shuffle ? index : undefined));
+    goTo(nextIn(poolOf(settings), shuffle, shuffle ? index : undefined));
+  };
+  const toggleScript = () => {
+    const script = SCRIPTS[(SCRIPTS.findIndex(([s]) => s === settings.script) + 1) % SCRIPTS.length][0];
+    onSettings({ script });
+    const pool = poolOf({ ...settings, script });
+    if (!pool.includes(index)) goTo(nextIn(pool, settings.shuffle));
   };
 
   const ink = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
@@ -171,6 +175,9 @@ export function Practice({
   return (
     <View style={styles.screen}>
       <View style={styles.row}>
+        <Pressable onPress={toggleScript} style={styles.pill} accessibilityLabel={`Script: ${settings.script}`}>
+          <Text style={styles.sub}>{SCRIPTS.find(([s]) => s === settings.script)![1]}</Text>
+        </Pressable>
         <Pressable onPress={() => setRowsOpen(!rowsOpen)} style={styles.pill} accessibilityState={{ expanded: rowsOpen }}>
           <Text style={styles.sub}>
             {settings.rows.length ? `Rows: ${settings.rows.join(' ')}` : 'All kana'} {rowsOpen ? '▴' : '▾'}
@@ -196,7 +203,7 @@ export function Practice({
             return (
               <Pressable key={r} onPress={() => toggleRow(r)} style={[styles.chip, on && styles.selected]} accessibilityState={{ selected: on }}>
                 <Text style={[styles.chipText, on && styles.selectedText]}>
-                  {r} {KANA.find((k) => k.kana === r)!.romaji}
+                  {rowLabel(r, settings.script)} {KANA.find((k) => k.kana === r)!.romaji}
                 </Text>
               </Pressable>
             );
@@ -205,7 +212,7 @@ export function Practice({
       )}
       <Text style={styles.romaji}>{kana.romaji}</Text>
       <Text style={styles.sub}>
-        {complete ? kana.kana : `stroke ${done.length + 1} of ${total}`}
+        {kana.script} · {complete ? kana.kana : `stroke ${done.length + 1} of ${total}`}
         {mistakes ? ` · ${mistakes} mistake${mistakes > 1 ? 's' : ''}` : ''}
       </Text>
 

@@ -1,13 +1,14 @@
 // Self-check for stroke matching and profile logic: node scripts/check.mjs
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { parsePath, judge, detectType, taperedOutline, trimCurl } from '../src/strokes.ts';
+import { judge, detectType, taperedOutline, hasHook } from '../src/strokes.ts';
 import { sanitize, addAttempt, median, DEFAULT_PROFILE } from '../src/profile.ts';
+import { KANA_DATA } from '../src/kana.ts';
 
-const data = JSON.parse(readFileSync(new URL('../src/hiragana.json', import.meta.url)));
-for (const { kana, strokes } of data) {
-  const refs = strokes.map((s) => parsePath(s.d));
+for (const { kana, strokes } of KANA_DATA) {
+  const refs = strokes.map((s) => s.pts);
   refs.forEach((r, i) => {
+    // Hand-drawn hane strokes must end in a hook (so drawing them like the hint reads as hane), others must not.
+    assert.equal(hasHook(r), strokes[i].type === 'hane', `${kana} stroke ${i + 1} (${strokes[i].type}) hook mismatch`);
     assert.ok(r.every((p) => p.x > 0 && p.x < 1 && p.y > 0 && p.y < 1), `${kana} ${i} out of box`);
     assert.equal(judge(r, refs, i, 0.1).error, undefined, `${kana} stroke ${i} should match itself`);
     const shifted = r.map((p) => ({ x: p.x + 0.2, y: p.y }));
@@ -18,8 +19,8 @@ for (const { kana, strokes } of data) {
 }
 
 // ぬ drawn for ね (and vice versa) is rejected even at the most lenient setting.
-const kanaRefs = (k) => data.find((x) => x.kana === k).strokes.map((s) => parsePath(s.d));
-for (const [drawn, target] of [['ぬ', 'ね'], ['ね', 'ぬ'], ['れ', 'わ']]) {
+const kanaRefs = (k) => KANA_DATA.find((x) => x.kana === k).strokes.map((s) => s.pts);
+for (const [drawn, target] of [['ぬ', 'ね'], ['ね', 'ぬ'], ['れ', 'わ'], ['シ', 'ツ'], ['ツ', 'シ'], ['ソ', 'ン'], ['ン', 'ソ']]) {
   const [a, b] = [kanaRefs(drawn), kanaRefs(target)];
   assert.ok(a.some((p, i) => judge(p, b, i, 0.2).error), `${drawn} should not pass as ${target}`);
 }
@@ -30,13 +31,6 @@ assert.equal(detectType(line(20), 700), 'tome'); // last move at t=500, lifted a
 assert.equal(detectType(line(20), 500), 'harai');
 const hook = [...line(20), { x: 0.17, y: 0.78, t: 510 }, { x: 0.14, y: 0.76, t: 520 }];
 assert.equal(detectType(hook, 520), 'hane');
-
-// trimCurl: a stroke that turns back at its very end loses the curl; one that turns back earlier keeps its shape.
-const curl = [{ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.4, y: 0.28 }];
-const trimmed = trimCurl(curl);
-assert.ok(Math.hypot(trimmed.at(-1).x - 0.5, trimmed.at(-1).y - 0.2) < 0.02);
-const longTail = [{ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.2, y: 0.6 }];
-assert.equal(trimCurl(longTail), longTail);
 
 // Long fast stroke, a pause, then a short quick flick up-right (に's 1st stroke) = hane.
 const longHane = [...line(20), { x: 0.215, y: 0.785, t: 720 }, { x: 0.23, y: 0.77, t: 730 }];
@@ -58,7 +52,8 @@ assert.equal(p.history['あ'].length, 20);
 assert.equal(p.history['あ'][0].t, 5);
 assert.deepEqual(sanitize(JSON.parse(JSON.stringify(p))), p);
 assert.throws(() => sanitize({ settings: { detection: 'x', tolerance: 0.1 }, history: {} }));
-assert.deepEqual(sanitize({ settings: { detection: 'auto', tolerance: 0.1 }, history: {} }).settings, { detection: 'auto', tolerance: 0.1, rows: [], shuffle: true, theme: 'system' });
+assert.deepEqual(sanitize({ settings: { detection: 'auto', tolerance: 0.1 }, history: {} }).settings, { detection: 'auto', tolerance: 0.1, rows: [], shuffle: true, theme: 'system', script: 'hiragana' });
+assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, script: 'kanji' }, history: {} }));
 assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, theme: 'blue' }, history: {} }));
 assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, shuffle: 'yes' }, history: {} }));
 assert.deepEqual(sanitize({ settings: { detection: 'auto', tolerance: 0.1, rows: ['さ', 'か'] }, history: {} }).settings.rows, ['か', 'さ']);

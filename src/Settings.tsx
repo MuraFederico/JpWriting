@@ -133,8 +133,6 @@ export function SettingsScreen({ profile, onChange }: { profile: Profile; onChan
         </Pressable>
       </View>
       {!!status && <Text style={styles.sub}>{status}</Text>}
-
-      <Text style={[styles.sub, { marginTop: 24 }]}>Stroke data: KanjiVG by Ulrich Apel, CC BY-SA 3.0.</Text>
     </ScrollView>
   );
 }

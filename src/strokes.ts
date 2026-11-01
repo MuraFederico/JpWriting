@@ -2,61 +2,25 @@ export type Pt = { x: number; y: number };
 export type TPt = Pt & { t: number };
 export type StrokeType = 'tome' | 'hane' | 'harai';
 
-export const KANJIVG_SIZE = 109;
 const N = 32;
 const HOOK_COS = 0; // user stroke turning back more than 90° at its end = hane
 const HOOK_MAX_TAIL = 0.15;
 const HOOK_MIN_TAIL = 0.02;
-const CURL_COS = 0.5; // reference tome stroke turning more than 60° near its end = curl to cut
-const CURL_MAX_TAIL = 0.2;
 const FLICK_RATIO = 0.5; // still moving at >50% of average speed when lifted = harai
 const FLICK_WINDOW_MS = 80;
-
-// KanjiVG kana only use M and relative c; points come out normalised to 0..1.
-export function parsePath(d: string): Pt[] {
-  const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)/g) ?? [];
-  const pts: Pt[] = [];
-  let cmd = '';
-  let x = 0;
-  let y = 0;
-  let i = 0;
-  const num = () => Number(tok[i++]);
-  while (i < tok.length) {
-    if (/[a-zA-Z]/.test(tok[i])) cmd = tok[i++];
-    if (cmd === 'M') {
-      x = num();
-      y = num();
-      pts.push({ x, y });
-    } else if (cmd === 'c') {
-      const [ax, ay, bx, by, ex, ey] = [x + num(), y + num(), x + num(), y + num(), x + num(), y + num()];
-      for (let k = 1; k <= 8; k++) {
-        const t = k / 8;
-        const u = 1 - t;
-        pts.push({
-          x: u * u * u * x + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * ex,
-          y: u * u * u * y + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * ey,
-        });
-      }
-      x = ex;
-      y = ey;
-    } else throw new Error(`unsupported path command ${cmd}`);
-  }
-  return pts.map((p) => ({ x: p.x / KANJIVG_SIZE, y: p.y / KANJIVG_SIZE }));
-}
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 const length = (pts: Pt[]) => pts.reduce((s, p, i) => (i ? s + dist(pts[i - 1], p) : 0), 0);
 
 // Sharpest direction change within the last `maxTail` (box widths) of a stroke, measured over ±0.04
-// so gradual curves and loops don't count. Returns the cosine of the turn (-1 = full reversal) and
-// where it happens on the stroke resampled every 0.01.
+// so gradual curves and loops don't count. Returns the cosine of the turn (-1 = full reversal).
 const STEP = 0.01;
 const TURN_WINDOW = 4;
-function endTurn(pts: Pt[], maxTail: number, minTail = 0): { cos: number; at: number; r: Pt[] } {
+function endTurn(pts: Pt[], maxTail: number, minTail = 0): number {
   const n = Math.max(TURN_WINDOW * 2, Math.ceil(length(pts) / STEP) + 1);
   const r = resample(pts, n);
   const step = length(pts) / (n - 1) || STEP;
-  let best = { cos: 1, at: -1, r };
+  let best = 1;
   const first = Math.max(TURN_WINDOW, n - 1 - Math.floor(maxTail / step));
   const last = n - 1 - Math.max(1, Math.ceil(minTail / step));
   for (let i = first; i <= last; i++) {
@@ -66,17 +30,9 @@ function endTurn(pts: Pt[], maxTail: number, minTail = 0): { cos: number; at: nu
     const b = { x: q.x - r[i].x, y: q.y - r[i].y };
     const norm = Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y);
     const cos = norm ? (a.x * b.x + a.y * b.y) / norm : 1;
-    if (cos < best.cos) best = { cos, at: i, r };
+    best = Math.min(best, cos);
   }
   return best;
-}
-
-// KanjiVG ends many tome strokes with a brush curl or a flourish linking to the next stroke
-// (dots of う/え/ふ, に's 2nd, た's 3rd) that reads as a hane. Cut where the stroke turns back
-// within its last 0.2; real shapes that turn earlier (ひ, そ, る, ね) are left alone.
-export function trimCurl(pts: Pt[]): Pt[] {
-  const { cos, at, r } = endTurn(pts, CURL_MAX_TAIL);
-  return cos < CURL_COS ? r.slice(0, at + 1) : pts;
 }
 
 // Evenly spaced points along the polyline (arc length), so strokes of any sampling compare 1:1.
@@ -161,7 +117,7 @@ export function judge(drawn: Pt[], refs: Pt[][], next: number, tolerance: number
 
 // A flick: the stroke turns back sharply in its last 0.15 and goes on for at least 0.02 (not just finger jitter).
 export function hasHook(pts: Pt[]): boolean {
-  return endTurn(pts, HOOK_MAX_TAIL, HOOK_MIN_TAIL).cos < HOOK_COS;
+  return endTurn(pts, HOOK_MAX_TAIL, HOOK_MIN_TAIL) < HOOK_COS;
 }
 
 // ponytail: heuristic ending detection, tune HOOK_COS / FLICK_RATIO on real devices.

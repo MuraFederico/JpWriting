@@ -23,24 +23,29 @@ export function Progress({ history }: { history: Record<string, Attempt[]> }) {
     <ScrollView contentContainerStyle={styles.screen}>
       <Text style={styles.title}>Progress</Text>
       <Text style={styles.sub}>Median correctness over the last {MAX_ATTEMPTS} attempts. Tap a kana for its trend.</Text>
-      <View style={styles.grid}>
-        {KANA.map(({ kana, romaji }) => {
-          const list = history[kana] ?? [];
-          const m = median(list.map((a) => a.correctness));
-          return (
-            <Pressable
-              key={kana}
-              onPress={() => setSelected(kana)}
-              accessibilityLabel={`${romaji}: ${m === undefined ? 'no attempts' : `${pct(m)} median correctness, ${list.length} attempts`}`}
-              style={[styles.tile, { width: tile, backgroundColor: m === undefined ? c.empty : `rgba(${c.accentRgb},${0.1 + 0.45 * m})` }]}
-            >
-              <Text style={styles.kana}>{kana}</Text>
-              <Text style={styles.small}>{romaji}</Text>
-              <Text style={styles.value}>{m === undefined ? '–' : pct(m)}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {(['hiragana', 'katakana'] as const).map((script) => (
+        <View key={script} style={styles.section}>
+          <Text style={styles.heading}>{script === 'hiragana' ? 'Hiragana' : 'Katakana'}</Text>
+          <View style={styles.grid}>
+            {KANA.filter((k) => k.script === script).map(({ kana, romaji }) => {
+              const list = history[kana] ?? [];
+              const m = median(list.map((a) => a.correctness));
+              return (
+                <Pressable
+                  key={kana}
+                  onPress={() => setSelected(kana)}
+                  accessibilityLabel={`${romaji}: ${m === undefined ? 'no attempts' : `${pct(m)} median correctness, ${list.length} attempts`}`}
+                  style={[styles.tile, { width: tile, backgroundColor: m === undefined ? c.empty : `rgba(${c.accentRgb},${0.1 + 0.45 * m})` }]}
+                >
+                  <Text style={styles.kana}>{kana}</Text>
+                  <Text style={styles.small}>{romaji}</Text>
+                  <Text style={styles.value}>{m === undefined ? '–' : pct(m)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -137,6 +142,8 @@ const makeStyles = (c: Colors) =>
     title: { fontSize: 28, fontWeight: '700', color: c.text },
     sub: { fontSize: 14, color: c.muted },
     small: { fontSize: 12, color: c.muted },
+    section: { gap: 8, marginTop: 8 },
+    heading: { fontSize: 17, fontWeight: '600', color: c.text },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     tile: { borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
     kana: { fontSize: 26, color: c.text },
