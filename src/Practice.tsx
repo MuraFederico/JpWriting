@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import { KANA_DATA } from './kana';
+import { deal, draw } from './deck';
 import { detectType, judge, taperedOutline, type Pt, type StrokeType, type TPt } from './strokes';
 import { pct, ROWS, type Attempt, type ScriptChoice, type Settings } from './profile';
 import { useColors, type Colors } from './theme';
@@ -22,13 +23,6 @@ const rowLabel = (r: string, script: ScriptChoice) =>
     .filter((s) => script === 'both' || s === script)
     .map((s) => KANA.find((k) => k.row === r && k.script === s)!.kana)
     .join(' ');
-const randomFrom = (pool: number[], not?: number) => {
-  const options = pool.length > 1 ? pool.filter((i) => i !== not) : pool;
-  return options[Math.floor(Math.random() * options.length)];
-};
-// Shuffle: random from the pool (never the same twice). Otherwise: gojūon order, wrapping around.
-const nextIn = (pool: number[], shuffle: boolean, current?: number) =>
-  shuffle ? randomFrom(pool, current) : current === undefined ? pool[0] : (pool.find((i) => i > current) ?? pool[0]);
 
 function ShuffleIcon({ color }: { color: string }) {
   return (
@@ -63,7 +57,8 @@ export function Practice({
   // The box takes whatever space is left between the header and the buttons (minus its 2px border).
   const [area, setArea] = useState({ width: 0, height: 0 });
   const size = Math.max(0, Math.min(area.width, area.height, 400) - 4);
-  const [index, setIndex] = useState(() => nextIn(poolOf(settings), settings.shuffle));
+  const [deck, setDeck] = useState(() => deal(poolOf(settings), settings.shuffle));
+  const [index, setIndex] = useState(() => deck[0]);
   const [rowsOpen, setRowsOpen] = useState(false);
   const [done, setDone] = useState<Pt[][]>([]);
   const [dists, setDists] = useState<number[]>([]);
@@ -150,24 +145,28 @@ export function Practice({
     setMessage('');
     setHint(false);
   };
-  const next = () => goTo(nextIn(poolOf(settings), settings.shuffle, index));
-  const toggleRow = (r: string | null) => {
-    const rows = r === null ? [] : ROWS.filter((x) => (x === r) !== settings.rows.includes(x));
-    onSettings({ rows });
-    const pool = poolOf({ ...settings, rows });
-    if (!pool.includes(index)) goTo(nextIn(pool, settings.shuffle));
+  const next = () => {
+    const d = draw(deck, index, poolOf(settings), settings.shuffle);
+    setDeck(d.deck);
+    goTo(d.next);
   };
-  const toggleShuffle = () => {
-    const shuffle = !settings.shuffle;
-    onSettings({ shuffle });
-    goTo(nextIn(poolOf(settings), shuffle, shuffle ? index : undefined));
+  // A new selection (or toggling shuffle) deals a new deck. The kana on screen stays if it's still selected;
+  // toggling shuffle always starts the new deck.
+  const redeal = (patch: Partial<Settings>) => {
+    const s = { ...settings, ...patch };
+    onSettings(patch);
+    const pool = poolOf(s);
+    if (pool.includes(index) && !('shuffle' in patch)) {
+      setDeck(s.shuffle ? [index, ...deal(pool.filter((i) => i !== index), true)] : pool);
+    } else {
+      const d = deal(pool, s.shuffle, index);
+      setDeck(d);
+      goTo(d[0]);
+    }
   };
-  const toggleScript = () => {
-    const script = SCRIPTS[(SCRIPTS.findIndex(([s]) => s === settings.script) + 1) % SCRIPTS.length][0];
-    onSettings({ script });
-    const pool = poolOf({ ...settings, script });
-    if (!pool.includes(index)) goTo(nextIn(pool, settings.shuffle));
-  };
+  const toggleRow = (r: string | null) => redeal({ rows: r === null ? [] : ROWS.filter((x) => (x === r) !== settings.rows.includes(x)) });
+  const toggleShuffle = () => redeal({ shuffle: !settings.shuffle });
+  const toggleScript = () => redeal({ script: SCRIPTS[(SCRIPTS.findIndex(([s]) => s === settings.script) + 1) % SCRIPTS.length][0] });
 
   const ink = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
   const hinted = !complete && hint ? kana.strokes[done.length] : null;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { judge, detectType, taperedOutline, hasHook } from '../src/strokes.ts';
 import { sanitize, addAttempt, median, DEFAULT_PROFILE } from '../src/profile.ts';
 import { KANA_DATA } from '../src/kana.ts';
+import { deal, draw } from '../src/deck.ts';
 
 for (const { kana, strokes } of KANA_DATA) {
   const refs = strokes.map((s) => s.pts);
@@ -44,6 +45,25 @@ const outline = taperedOutline(line(20), 0.05);
 const w = (a, b) => Math.hypot(outline[a].x - outline[b].x, outline[a].y - outline[b].y);
 assert.ok(Math.abs(w(0, outline.length - 1) - 0.05) < 1e-9);
 assert.ok(w(39, 40) < 1e-9);
+
+// Deck: every kana of the pool once before any repeats, and no repeat across the reshuffle.
+{
+  const pool = [3, 5, 8, 13, 21, 34];
+  for (let run = 0; run < 50; run++) {
+    let deck = deal(pool, true);
+    let current = deck[0];
+    const seen = [current];
+    for (let k = 0; k < pool.length * 3 - 1; k++) {
+      const prev = current;
+      ({ deck, next: current } = draw(deck, current, pool, true));
+      assert.notEqual(current, prev);
+      seen.push(current);
+    }
+    for (let r = 0; r < 3; r++) assert.deepEqual([...seen.slice(r * 6, r * 6 + 6)].sort((a, b) => a - b), pool);
+  }
+  assert.deepEqual(deal(pool, false), pool);
+  assert.equal(draw(pool, 34, pool, false).next, 3); // in order, wrapping around
+}
 
 // Profile
 let p = DEFAULT_PROFILE;
