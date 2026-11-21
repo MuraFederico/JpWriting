@@ -15,7 +15,7 @@ Stroke shapes and endings (kana and kanji) are hand-drawn in `src/kana.ts`: each
 
 ## Releases
 
-Pushing a tag like `v1.0.0` or `1.0.0`, or publishing a Release with a new tag on the website, builds a signed Android APK and an unsigned iPhone `.ipa` and attaches both to the GitHub Release (`.github/workflows/release.yml`).
+Pushing a tag like `v1.0.0` or `1.0.0`, publishing a Release with a new tag on the website, or Actions → Release → **Run workflow** with a version (also from the GitHub mobile app) builds a signed Android APK and an unsigned iPhone `.ipa` and attaches both to the GitHub Release (`.github/workflows/release.yml`).
 
 ### Android APK
 

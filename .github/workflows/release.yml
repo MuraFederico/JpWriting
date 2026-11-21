@@ -1,4 +1,5 @@
-# Push a tag like v1.0.0 or 1.0.0 (or publish a Release on the website) → builds a signed Android APK and an
+# Push a tag like v1.0.0 or 1.0.0, publish a Release on the website, or Actions → Release → Run workflow with a
+# version (creates that tag on the chosen branch; works from the GitHub mobile app) → builds a signed Android APK and an
 # unsigned iPhone .ipa (for AltStore / SideStore) and attaches both to that Release.
 # Needs repo secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD (see README).
 name: Release
@@ -6,9 +7,17 @@ name: Release
 on:
   push:
     tags: ['v*', '[0-9]*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to create, e.g. 1.1.0'
+        required: true
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ inputs.version || github.ref_name }}
 
 jobs:
   apk:
@@ -53,11 +62,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk="JpWriting-${GITHUB_REF_NAME}.apk"
+          apk="JpWriting-${TAG}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$apk"
           # The release may already exist (created on the website, or by the iOS job running in parallel).
-          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" > /dev/null
-          gh release upload "$GITHUB_REF_NAME" "$apk" --clobber
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes || gh release view "$TAG" > /dev/null
+          gh release upload "$TAG" "$apk" --clobber
 
   # Unsigned: AltStore / SideStore re-sign it with the user's own Apple ID when installing.
   ipa:
@@ -90,11 +99,11 @@ jobs:
         run: |
           mkdir Payload
           cp -R "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app Payload/
-          zip -qry "JpWriting-${GITHUB_REF_NAME}.ipa" Payload
+          zip -qry "JpWriting-${TAG}.ipa" Payload
 
       - name: Publish .ipa
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" > /dev/null
-          gh release upload "$GITHUB_REF_NAME" "JpWriting-${GITHUB_REF_NAME}.ipa" --clobber
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes || gh release view "$TAG" > /dev/null
+          gh release upload "$TAG" "JpWriting-${TAG}.ipa" --clobber
