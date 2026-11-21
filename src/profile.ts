@@ -1,16 +1,18 @@
 export type Detection = 'auto' | 'buttons';
 export type Theme = 'system' | 'light' | 'dark';
-export type ScriptChoice = 'hiragana' | 'katakana' | 'both' | 'kanji';
+export type ScriptChoice = 'hiragana' | 'katakana' | 'both';
 export type Settings = { detection: Detection; tolerance: number; rows: string[]; shuffle: boolean; theme: Theme; script: ScriptChoice };
 export type Attempt = { t: number; correctness: number; precision: number };
-export type Profile = { settings: Settings; history: Record<string, Attempt[]> };
+export type Collection = { name: string; kanji: string[] };
+export type Profile = { settings: Settings; history: Record<string, Attempt[]>; collections: Collection[] };
 
 export const MAX_ATTEMPTS = 20;
+export const NAME_MAX = 40;
 export const TOLERANCE_MIN = 0.05;
 export const TOLERANCE_MAX = 0.2;
 // Gojūon row heads; no rows selected = all kana.
 export const ROWS = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ'];
-export const DEFAULT_PROFILE: Profile = { settings: { detection: 'buttons', tolerance: 0.1, rows: [], shuffle: true, theme: 'system', script: 'hiragana' }, history: {} };
+export const DEFAULT_PROFILE: Profile = { settings: { detection: 'buttons', tolerance: 0.1, rows: [], shuffle: true, theme: 'system', script: 'hiragana' }, history: {}, collections: [] };
 
 export function addAttempt(p: Profile, kana: string, a: Attempt): Profile {
   return { ...p, history: { ...p.history, [kana]: [...(p.history[kana] ?? []), a].slice(-MAX_ATTEMPTS) } };
@@ -42,7 +44,7 @@ export function sanitize(raw: unknown): Profile {
   const theme = s.theme ?? 'system';
   if (!['system', 'light', 'dark'].includes(theme)) throw new Error('Invalid theme');
   const script = s.script ?? 'hiragana';
-  if (!['hiragana', 'katakana', 'both', 'kanji'].includes(script)) throw new Error('Invalid script');
+  if (!['hiragana', 'katakana', 'both'].includes(script)) throw new Error('Invalid script');
   if (typeof r.history !== 'object' || r.history === null) throw new Error('Invalid history');
   const history: Record<string, Attempt[]> = {};
   for (const [kana, list] of Object.entries(r.history)) {
@@ -51,5 +53,11 @@ export function sanitize(raw: unknown): Profile {
       if (typeof a?.t !== 'number' || !unit(a.correctness) || !unit(a.precision)) throw new Error(`Invalid attempt for ${kana}`);
     history[kana] = list.slice(-MAX_ATTEMPTS).map(({ t, correctness, precision }) => ({ t, correctness, precision }));
   }
-  return { settings: { detection: s.detection, tolerance: s.tolerance, rows: ROWS.filter((x) => rows.includes(x)), shuffle, theme, script }, history };
+  // absent in profiles saved before kanji collections existed
+  const collections = r.collections ?? [];
+  if (!Array.isArray(collections)) throw new Error('Invalid collections');
+  for (const c of collections)
+    if (typeof c?.name !== 'string' || !c.name.trim() || c.name.length > NAME_MAX || !Array.isArray(c.kanji) || !c.kanji.every((k) => typeof k === 'string' && [...k].length === 1))
+      throw new Error('Invalid collection');
+  return { collections: collections.map((c) => ({ name: c.name.trim(), kanji: [...new Set(c.kanji)] })), settings: { detection: s.detection, tolerance: s.tolerance, rows: ROWS.filter((x) => rows.includes(x)), shuffle, theme, script }, history };
 }

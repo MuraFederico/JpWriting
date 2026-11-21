@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { GestureResponderEvent, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import { KANA_DATA } from './kana';
@@ -13,12 +13,10 @@ const TYPES: [StrokeType, string][] = [['tome', '止め'], ['hane', '跳ね'], [
 const SHOW = ['off', 'shape', 'order'] as const;
 const PRECISION_ZERO = 0.25; // mean deviation (box widths) that scores 0% precision
 const toPoints = (pts: Pt[]) => pts.map((p) => `${p.x * S},${p.y * S}`).join(' ');
-const SCRIPTS: [ScriptChoice, string][] = [['hiragana', 'あ'], ['katakana', 'ア'], ['both', 'あ ア'], ['kanji', '漢']];
+const SCRIPTS: [ScriptChoice, string][] = [['hiragana', 'あ'], ['katakana', 'ア'], ['both', 'あ ア']];
 const ALL = KANA.map((_, i) => i);
 const poolOf = ({ rows, script }: Pick<Settings, 'rows' | 'script'>) =>
-  script === 'kanji'
-    ? ALL.filter((i) => KANA[i].script === 'kanji') // kana rows don't apply to kanji
-    : ALL.filter((i) => (script === 'both' ? KANA[i].script !== 'kanji' : KANA[i].script === script) && (!rows.length || rows.includes(KANA[i].row)));
+  ALL.filter((i) => (script === 'both' ? KANA[i].script !== 'kanji' : KANA[i].script === script) && (!rows.length || rows.includes(KANA[i].row)));
 // Row chip label in the chosen script(s): か, カ or か カ.
 const rowLabel = (r: string, script: ScriptChoice) =>
   (['hiragana', 'katakana'] as const)
@@ -45,23 +43,76 @@ function RefStroke({ s, color, opacity, width }: { s: (typeof KANA)[number]['str
   return <Polygon points={toPoints(taperedOutline(s.pts, width / S))} fill={color} fillOpacity={opacity} />;
 }
 
-export function Practice({
-  settings,
-  onAttempt,
-  onSettings,
-}: {
+type PracticeProps = {
   settings: Settings;
   onAttempt: (kana: string, a: Attempt) => void;
   onSettings: (patch: Partial<Settings>) => void;
-}) {
+};
+
+// Hiragana / katakana: script and gojūon-row pickers around the writer.
+export function KanaPractice(props: PracticeProps) {
+  const { settings, onSettings } = props;
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
+  const [rowsOpen, setRowsOpen] = useState(false);
+  const pool = useMemo(() => poolOf(settings), [settings.rows, settings.script]);
+  const toggleRow = (r: string | null) => onSettings({ rows: r === null ? [] : ROWS.filter((x) => (x === r) !== settings.rows.includes(x)) });
+  const toggleScript = () => onSettings({ script: SCRIPTS[(SCRIPTS.findIndex(([s]) => s === settings.script) + 1) % SCRIPTS.length][0] });
+  return (
+    <Practice
+      {...props}
+      pool={pool}
+      controls={
+        <>
+          <Pressable onPress={toggleScript} style={styles.pill} accessibilityLabel={`Script: ${settings.script}`}>
+            <Text style={styles.sub}>{SCRIPTS.find(([s]) => s === settings.script)![1]}</Text>
+          </Pressable>
+          <Pressable onPress={() => setRowsOpen(!rowsOpen)} style={styles.pill} accessibilityState={{ expanded: rowsOpen }}>
+            <Text style={styles.sub}>
+              {settings.rows.length ? `Rows: ${settings.rows.join(' ')}` : 'All kana'} {rowsOpen ? '▴' : '▾'}
+            </Text>
+          </Pressable>
+        </>
+      }
+      extra={
+        rowsOpen && (
+          <View style={styles.chips}>
+            <Pressable onPress={() => toggleRow(null)} style={[styles.chip, !settings.rows.length && styles.selected]}>
+              <Text style={[styles.chipText, !settings.rows.length && styles.selectedText]}>All</Text>
+            </Pressable>
+            {ROWS.map((r) => {
+              const on = settings.rows.includes(r);
+              return (
+                <Pressable key={r} onPress={() => toggleRow(r)} style={[styles.chip, on && styles.selected]} accessibilityState={{ selected: on }}>
+                  <Text style={[styles.chipText, on && styles.selectedText]}>
+                    {rowLabel(r, settings.script)} {KANA.find((k) => k.kana === r)!.romaji}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )
+      }
+    />
+  );
+}
+
+// The writing box for any pool of KANA indices (must not be empty); `controls` go in the top row next to shuffle.
+export function Practice({
+  pool,
+  settings,
+  onAttempt,
+  onSettings,
+  controls,
+  extra,
+}: PracticeProps & { pool: number[]; controls?: ReactNode; extra?: ReactNode }) {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
   // The box takes whatever space is left between the header and the buttons (minus its 2px border).
   const [area, setArea] = useState({ width: 0, height: 0 });
   const size = Math.max(0, Math.min(area.width, area.height, 400) - 4);
-  const [deck, setDeck] = useState(() => deal(poolOf(settings), settings.shuffle));
+  const [deck, setDeck] = useState(() => deal(pool, settings.shuffle));
   const [index, setIndex] = useState(() => deck[0]);
-  const [rowsOpen, setRowsOpen] = useState(false);
   const [done, setDone] = useState<Pt[][]>([]);
   const [dists, setDists] = useState<number[]>([]);
   const [mistakes, setMistakes] = useState(0);
@@ -74,6 +125,21 @@ export function Practice({
   const origin = useRef({ x: 0, y: 0 });
   const sizeRef = useRef(size);
   sizeRef.current = size;
+
+  // A new pool (or toggling shuffle) deals a new deck, during render so a stale kana never shows.
+  // The kana on screen stays if it's still in the pool; toggling shuffle always starts the new deck.
+  const poolKey = pool.join(',');
+  const [dealt, setDealt] = useState({ poolKey, shuffle: settings.shuffle });
+  if (dealt.poolKey !== poolKey || dealt.shuffle !== settings.shuffle) {
+    setDealt({ poolKey, shuffle: settings.shuffle });
+    if (pool.includes(index) && dealt.shuffle === settings.shuffle) {
+      setDeck(settings.shuffle ? [index, ...deal(pool.filter((i) => i !== index), true)] : pool);
+    } else {
+      const d = deal(pool, settings.shuffle, index);
+      setDeck(d);
+      goTo(d[0]);
+    }
+  }
 
   const kana = KANA[index];
   const total = kana.strokes.length;
@@ -138,7 +204,7 @@ export function Practice({
     }),
   ).current;
 
-  const goTo = (i: number) => {
+  function goTo(i: number) {
     setIndex(i);
     setDone([]);
     setDists([]);
@@ -146,29 +212,13 @@ export function Practice({
     setSelected(null);
     setMessage('');
     setHint(false);
-  };
+  }
   const next = () => {
-    const d = draw(deck, index, poolOf(settings), settings.shuffle);
+    const d = draw(deck, index, pool, settings.shuffle);
     setDeck(d.deck);
     goTo(d.next);
   };
-  // A new selection (or toggling shuffle) deals a new deck. The kana on screen stays if it's still selected;
-  // toggling shuffle always starts the new deck.
-  const redeal = (patch: Partial<Settings>) => {
-    const s = { ...settings, ...patch };
-    onSettings(patch);
-    const pool = poolOf(s);
-    if (pool.includes(index) && !('shuffle' in patch)) {
-      setDeck(s.shuffle ? [index, ...deal(pool.filter((i) => i !== index), true)] : pool);
-    } else {
-      const d = deal(pool, s.shuffle, index);
-      setDeck(d);
-      goTo(d[0]);
-    }
-  };
-  const toggleRow = (r: string | null) => redeal({ rows: r === null ? [] : ROWS.filter((x) => (x === r) !== settings.rows.includes(x)) });
-  const toggleShuffle = () => redeal({ shuffle: !settings.shuffle });
-  const toggleScript = () => redeal({ script: SCRIPTS[(SCRIPTS.findIndex(([s]) => s === settings.script) + 1) % SCRIPTS.length][0] });
+  const toggleShuffle = () => onSettings({ shuffle: !settings.shuffle });
 
   const ink = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
   const hinted = !complete && hint ? kana.strokes[done.length] : null;
@@ -176,16 +226,7 @@ export function Practice({
   return (
     <View style={styles.screen}>
       <View style={styles.row}>
-        <Pressable onPress={toggleScript} style={styles.pill} accessibilityLabel={`Script: ${settings.script}`}>
-          <Text style={styles.sub}>{SCRIPTS.find(([s]) => s === settings.script)![1]}</Text>
-        </Pressable>
-        {settings.script !== 'kanji' && (
-          <Pressable onPress={() => setRowsOpen(!rowsOpen)} style={styles.pill} accessibilityState={{ expanded: rowsOpen }}>
-            <Text style={styles.sub}>
-              {settings.rows.length ? `Rows: ${settings.rows.join(' ')}` : 'All kana'} {rowsOpen ? '▴' : '▾'}
-            </Text>
-          </Pressable>
-        )}
+        {controls}
         <Pressable
           onPress={toggleShuffle}
           style={[styles.pill, settings.shuffle && styles.selected]}
@@ -196,23 +237,7 @@ export function Practice({
           <ShuffleIcon color={settings.shuffle ? c.onAccent : c.muted} />
         </Pressable>
       </View>
-      {rowsOpen && settings.script !== 'kanji' && (
-        <View style={styles.chips}>
-          <Pressable onPress={() => toggleRow(null)} style={[styles.chip, !settings.rows.length && styles.selected]}>
-            <Text style={[styles.chipText, !settings.rows.length && styles.selectedText]}>All</Text>
-          </Pressable>
-          {ROWS.map((r) => {
-            const on = settings.rows.includes(r);
-            return (
-              <Pressable key={r} onPress={() => toggleRow(r)} style={[styles.chip, on && styles.selected]} accessibilityState={{ selected: on }}>
-                <Text style={[styles.chipText, on && styles.selectedText]}>
-                  {rowLabel(r, settings.script)} {KANA.find((k) => k.kana === r)!.romaji}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      {extra}
       <Text style={styles.romaji}>{kana.romaji}</Text>
       <Text style={styles.sub}>
         {kana.script}{kana.readings ? ` · ${kana.readings}` : ''} · {complete ? kana.kana : `stroke ${done.length + 1} of ${total}`}

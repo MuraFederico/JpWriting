@@ -109,7 +109,7 @@ export function SettingsScreen({ profile, onChange }: { profile: Profile; onChan
       </View>
 
       <Text style={styles.h}>Profile</Text>
-      <Text style={styles.sub}>Export shares your settings and history as text. To import, paste that text here.</Text>
+      <Text style={styles.sub}>Export shares your settings, history and kanji collections as text. To import, paste that text here.</Text>
       <TextInput
         value={text}
         onChangeText={(t) => {
