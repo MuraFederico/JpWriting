@@ -13,10 +13,12 @@ const TYPES: [StrokeType, string][] = [['tome', '止め'], ['hane', '跳ね'], [
 const SHOW = ['off', 'shape', 'order'] as const;
 const PRECISION_ZERO = 0.25; // mean deviation (box widths) that scores 0% precision
 const toPoints = (pts: Pt[]) => pts.map((p) => `${p.x * S},${p.y * S}`).join(' ');
-const SCRIPTS: [ScriptChoice, string][] = [['hiragana', 'あ'], ['katakana', 'ア'], ['both', 'あ ア']];
+const SCRIPTS: [ScriptChoice, string][] = [['hiragana', 'あ'], ['katakana', 'ア'], ['both', 'あ ア'], ['kanji', '漢']];
 const ALL = KANA.map((_, i) => i);
 const poolOf = ({ rows, script }: Pick<Settings, 'rows' | 'script'>) =>
-  ALL.filter((i) => (script === 'both' || KANA[i].script === script) && (!rows.length || rows.includes(KANA[i].row)));
+  script === 'kanji'
+    ? ALL.filter((i) => KANA[i].script === 'kanji') // kana rows don't apply to kanji
+    : ALL.filter((i) => (script === 'both' ? KANA[i].script !== 'kanji' : KANA[i].script === script) && (!rows.length || rows.includes(KANA[i].row)));
 // Row chip label in the chosen script(s): か, カ or か カ.
 const rowLabel = (r: string, script: ScriptChoice) =>
   (['hiragana', 'katakana'] as const)
@@ -177,11 +179,13 @@ export function Practice({
         <Pressable onPress={toggleScript} style={styles.pill} accessibilityLabel={`Script: ${settings.script}`}>
           <Text style={styles.sub}>{SCRIPTS.find(([s]) => s === settings.script)![1]}</Text>
         </Pressable>
-        <Pressable onPress={() => setRowsOpen(!rowsOpen)} style={styles.pill} accessibilityState={{ expanded: rowsOpen }}>
-          <Text style={styles.sub}>
-            {settings.rows.length ? `Rows: ${settings.rows.join(' ')}` : 'All kana'} {rowsOpen ? '▴' : '▾'}
-          </Text>
-        </Pressable>
+        {settings.script !== 'kanji' && (
+          <Pressable onPress={() => setRowsOpen(!rowsOpen)} style={styles.pill} accessibilityState={{ expanded: rowsOpen }}>
+            <Text style={styles.sub}>
+              {settings.rows.length ? `Rows: ${settings.rows.join(' ')}` : 'All kana'} {rowsOpen ? '▴' : '▾'}
+            </Text>
+          </Pressable>
+        )}
         <Pressable
           onPress={toggleShuffle}
           style={[styles.pill, settings.shuffle && styles.selected]}
@@ -192,7 +196,7 @@ export function Practice({
           <ShuffleIcon color={settings.shuffle ? c.onAccent : c.muted} />
         </Pressable>
       </View>
-      {rowsOpen && (
+      {rowsOpen && settings.script !== 'kanji' && (
         <View style={styles.chips}>
           <Pressable onPress={() => toggleRow(null)} style={[styles.chip, !settings.rows.length && styles.selected]}>
             <Text style={[styles.chipText, !settings.rows.length && styles.selectedText]}>All</Text>
@@ -211,7 +215,7 @@ export function Practice({
       )}
       <Text style={styles.romaji}>{kana.romaji}</Text>
       <Text style={styles.sub}>
-        {kana.script} · {complete ? kana.kana : `stroke ${done.length + 1} of ${total}`}
+        {kana.script}{kana.readings ? ` · ${kana.readings}` : ''} · {complete ? kana.kana : `stroke ${done.length + 1} of ${total}`}
         {mistakes ? ` · ${mistakes} mistake${mistakes > 1 ? 's' : ''}` : ''}
       </Text>
 

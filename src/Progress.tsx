@@ -23,9 +23,9 @@ export function Progress({ history }: { history: Record<string, Attempt[]> }) {
     <ScrollView contentContainerStyle={styles.screen}>
       <Text style={styles.title}>Progress</Text>
       <Text style={styles.sub}>Median correctness over the last {MAX_ATTEMPTS} attempts. Tap a kana for its trend.</Text>
-      {(['hiragana', 'katakana'] as const).map((script) => (
+      {(['hiragana', 'katakana', 'kanji'] as const).map((script) => (
         <View key={script} style={styles.section}>
-          <Text style={styles.heading}>{script === 'hiragana' ? 'Hiragana' : 'Katakana'}</Text>
+          <Text style={styles.heading}>{script[0].toUpperCase() + script.slice(1)}</Text>
           <View style={styles.grid}>
             {KANA.filter((k) => k.script === script).map(({ kana, romaji }) => {
               const list = history[kana] ?? [];

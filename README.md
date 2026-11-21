@@ -1,6 +1,6 @@
 # JpWriting
 
-Hiragana and katakana writing practice: write the kana for the romaji shown, in the correct stroke order, with the correct stroke endings (tome / hane / harai).
+Hiragana, katakana and kanji writing practice: write the kana for the romaji shown (or the kanji for the meaning shown), in the correct stroke order, with the correct stroke endings (tome / hane / harai).
 
 ## Develop
 
@@ -11,7 +11,7 @@ npx expo start --web  # browser
 npm run check         # typecheck + logic self-check
 ```
 
-Stroke shapes and endings are hand-drawn in `src/kana.ts`: each stroke is a list of points on a 0–100 grid (repeat a point for a sharp corner), plus one letter per stroke for its ending (t = tome, n = hane, r = harai).
+Stroke shapes and endings (kana and kanji) are hand-drawn in `src/kana.ts`: each stroke is a list of points on a 0–100 grid (repeat a point for a sharp corner), plus one letter per stroke for its ending (t = tome, n = hane, r = harai).
 
 ## Releases
 

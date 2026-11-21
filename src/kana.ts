@@ -253,6 +253,76 @@ const KATAKANA: Raw[] = [
   ['ン', 'n', 'tr', [[18, 24, 34, 36], [16, 86, 50, 70, 86, 30]]],
 ];
 
+// Tozai course, Livello 1. Readings: kun・on (as in the book).
+type RawKanji = [kanji: string, meaning: string, readings: string, endings: string, strokes: number[][]];
+const KANJI: RawKanji[] = [
+  // Kanji 7
+  ['女', 'woman', 'おんな・ジョ', 'trt', [
+    [46, 10, 24, 50, 24, 50, 56, 74, 78, 90],
+    [68, 24, 62, 52, 44, 74, 16, 90],
+    [10, 50, 90, 46],
+  ]],
+  ['男', 'man', 'おとこ・ダン、ナン', 'tttttnr', [
+    [24, 10, 26, 46],
+    [24, 10, 76, 10, 76, 10, 74, 46],
+    [26, 28, 74, 28],
+    [50, 10, 50, 46],
+    [26, 46, 74, 46],
+    [20, 62, 76, 60, 76, 60, 74, 80, 70, 92, 70, 92, 62, 86],
+    [48, 52, 46, 68, 36, 84, 18, 94],
+  ]],
+  ['子', 'child', 'こ・シ', 'tnt', [
+    [24, 16, 70, 14, 70, 14, 48, 36],
+    [46, 36, 52, 46, 52, 78, 50, 90, 50, 90, 40, 84],
+    [12, 54, 88, 52],
+  ]],
+  ['母', 'mother', 'はは・ボ', 'tnttt', [
+    [30, 16, 22, 74, 22, 74, 76, 72],
+    [30, 16, 76, 14, 76, 14, 74, 80, 74, 92, 74, 92, 64, 86],
+    [44, 26, 52, 36],
+    [8, 46, 92, 44],
+    [42, 54, 50, 64],
+  ]],
+  ['父', 'father', 'ちち・フ', 'ttrr', [
+    [38, 12, 26, 30],
+    [62, 12, 76, 28],
+    [70, 40, 54, 62, 34, 80, 14, 90],
+    [30, 40, 46, 62, 66, 80, 88, 90],
+  ]],
+  // Kanji 8
+  ['左', 'left', 'ひだり・サ', 'trttt', [
+    [14, 30, 86, 28],
+    [46, 10, 42, 40, 30, 64, 12, 86],
+    [42, 50, 76, 48],
+    [58, 50, 58, 82],
+    [32, 84, 88, 82],
+  ]],
+  ['右', 'right', 'みぎ・ウ、ユウ', 'rtttt', [
+    [50, 10, 44, 36, 30, 62, 12, 82],
+    [14, 32, 86, 30],
+    [42, 54, 43, 86],
+    [42, 54, 80, 52, 80, 52, 77, 86],
+    [44, 82, 76, 82],
+  ]],
+  ['上', 'up', 'うえ、あ-がる・ジョウ', 'ttt', [
+    [44, 14, 44, 84],
+    [44, 48, 72, 46],
+    [12, 86, 88, 84],
+  ]],
+  ['下', 'down', 'した、さ-がる・カ、ゲ', 'ttt', [
+    [12, 18, 88, 16],
+    [48, 18, 48, 88],
+    [54, 38, 66, 50],
+  ]],
+  ['白', 'white', 'しろ、しろ-い・ハク', 'rtttt', [
+    [52, 8, 44, 24],
+    [26, 28, 28, 90],
+    [26, 28, 74, 28, 74, 28, 72, 90],
+    [28, 58, 72, 58],
+    [28, 88, 72, 88],
+  ]],
+];
+
 const TYPES: Record<string, StrokeType> = { t: 'tome', n: 'hane', r: 'harai' };
 // Gojūon rows (あ か さ た な は ま や ら わ); both scripts list kana in the same order.
 const ROW_SIZES = [5, 5, 5, 5, 5, 5, 5, 3, 5, 3];
@@ -284,7 +354,8 @@ export function smooth(flat: number[], steps = 8): Pt[] {
   return pieces.flatMap((piece, i) => (i ? curve(piece).slice(1) : curve(piece)));
 }
 
-export type Script = 'hiragana' | 'katakana';
+export type Script = 'hiragana' | 'katakana' | 'kanji';
+export type Kana = { kana: string; romaji: string; script: Script; row: string; readings?: string; strokes: { type: StrokeType; pts: Pt[] }[] };
 // Row id = the hiragana row head (あ, か, …), shared by both scripts.
 const ROW_HEADS = ROW_SIZES.map((_, r) => HIRAGANA[ROW_SIZES.slice(0, r).reduce((a, b) => a + b, 0)][0]);
 const rowOf = (i: number) => {
@@ -292,10 +363,16 @@ const rowOf = (i: number) => {
   for (let start = 0; start + ROW_SIZES[r] <= i; r++) start += ROW_SIZES[r];
   return ROW_HEADS[r];
 };
-const build = (raw: Raw[], script: Script) =>
-  raw.map(([kana, romaji, endings, strokes], i) => {
-    if (strokes.length !== endings.length) throw new Error(`${kana}: ${strokes.length} strokes, ${endings.length} endings`);
-    return { kana, romaji, script, row: rowOf(i), strokes: strokes.map((p, j) => ({ type: TYPES[endings[j]], pts: smooth(p) })) };
-  });
+const strokesOf = (kana: string, endings: string, strokes: number[][]) => {
+  if (strokes.length !== endings.length) throw new Error(`${kana}: ${strokes.length} strokes, ${endings.length} endings`);
+  return strokes.map((p, j) => ({ type: TYPES[endings[j]], pts: smooth(p) }));
+};
+const build = (raw: Raw[], script: Script): Kana[] =>
+  raw.map(([kana, romaji, endings, strokes], i) => ({ kana, romaji, script, row: rowOf(i), strokes: strokesOf(kana, endings, strokes) }));
 
-export const KANA_DATA = [...build(HIRAGANA, 'hiragana'), ...build(KATAKANA, 'katakana')];
+// Kanji have no gojūon row; `romaji` holds the meaning shown as the prompt.
+export const KANA_DATA: Kana[] = [
+  ...build(HIRAGANA, 'hiragana'),
+  ...build(KATAKANA, 'katakana'),
+  ...KANJI.map(([kana, romaji, readings, endings, strokes]) => ({ kana, romaji, readings, script: 'kanji' as const, row: '', strokes: strokesOf(kana, endings, strokes) })),
+];

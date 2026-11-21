@@ -73,7 +73,7 @@ assert.equal(p.history['あ'][0].t, 5);
 assert.deepEqual(sanitize(JSON.parse(JSON.stringify(p))), p);
 assert.throws(() => sanitize({ settings: { detection: 'x', tolerance: 0.1 }, history: {} }));
 assert.deepEqual(sanitize({ settings: { detection: 'auto', tolerance: 0.1 }, history: {} }).settings, { detection: 'auto', tolerance: 0.1, rows: [], shuffle: true, theme: 'system', script: 'hiragana' });
-assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, script: 'kanji' }, history: {} }));
+assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, script: 'romaji' }, history: {} }));
 assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, theme: 'blue' }, history: {} }));
 assert.throws(() => sanitize({ settings: { detection: 'auto', tolerance: 0.1, shuffle: 'yes' }, history: {} }));
 assert.deepEqual(sanitize({ settings: { detection: 'auto', tolerance: 0.1, rows: ['さ', 'か'] }, history: {} }).settings.rows, ['か', 'さ']);

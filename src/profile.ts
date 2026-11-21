@@ -1,6 +1,6 @@
 export type Detection = 'auto' | 'buttons';
 export type Theme = 'system' | 'light' | 'dark';
-export type ScriptChoice = 'hiragana' | 'katakana' | 'both';
+export type ScriptChoice = 'hiragana' | 'katakana' | 'both' | 'kanji';
 export type Settings = { detection: Detection; tolerance: number; rows: string[]; shuffle: boolean; theme: Theme; script: ScriptChoice };
 export type Attempt = { t: number; correctness: number; precision: number };
 export type Profile = { settings: Settings; history: Record<string, Attempt[]> };
@@ -42,7 +42,7 @@ export function sanitize(raw: unknown): Profile {
   const theme = s.theme ?? 'system';
   if (!['system', 'light', 'dark'].includes(theme)) throw new Error('Invalid theme');
   const script = s.script ?? 'hiragana';
-  if (!['hiragana', 'katakana', 'both'].includes(script)) throw new Error('Invalid script');
+  if (!['hiragana', 'katakana', 'both', 'kanji'].includes(script)) throw new Error('Invalid script');
   if (typeof r.history !== 'object' || r.history === null) throw new Error('Invalid history');
   const history: Record<string, Attempt[]> = {};
   for (const [kana, list] of Object.entries(r.history)) {
